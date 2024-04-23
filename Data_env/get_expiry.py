@@ -5,8 +5,9 @@ import datetime as dt
 
 class get_expiry(data_cleaning):
 
-    def __init__(self,df:pd.DataFrame):
-        self.df = df
+    def __init__(self,*args, **kwargs):
+        super().__init__( *args, **kwargs)
+        self.df = self.get_futures_data()
         self.current_backtest_date = self.df["Timestamp"].iloc[2].date()
         #self.current_backtest_date = dt.datetime(2019,5,2)--> testing
     def day_of_week(self):
