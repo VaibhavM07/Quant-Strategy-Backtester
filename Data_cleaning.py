@@ -1,6 +1,7 @@
 from Data_loading import data_load
 import pandas as pd
 import string
+import datetime as dt
 
 class data_cleaning():
 
@@ -18,7 +19,7 @@ class data_cleaning():
             df.drop('Date', inplace=True, axis=1)
             df.drop('Time', inplace=True, axis=1)
             return df
-    def get_ticker(self,):
+    def get_ticker(self):
         df = self.get_data()
         df = df[df["Ticker"].apply(lambda a: a[0:len(self.ticker)]==self.ticker)]
         if df.empty:
@@ -41,7 +42,7 @@ class data_cleaning():
             print("Error occurred: {}".format(e))
             return None
 
-    def get_option_put_data(self):
+    def get_ticker_put_data(self):
         try:
             df = self.get_ticker()
             ticker_puts = df[df["Ticker"].apply(lambda a: a.strip()[-2:] == "PE")]
