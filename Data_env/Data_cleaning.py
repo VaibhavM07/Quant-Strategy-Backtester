@@ -5,10 +5,9 @@ import datetime as dt
 
 class data_cleaning():
 
-    def __init__(self,path:string,ticker:string,call_put = None):
+    def __init__(self,path:string,ticker:string):
         self.path = path
         self.ticker = ticker
-        self.call_put = call_put
     def get_data(self):
         df = data_load(path=self.path)
         if df.empty:
