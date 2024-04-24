@@ -1,5 +1,6 @@
 from Data_env.Data_cleaning import data_cleaning
-
+import pandas as pd
+import numpy as np
 
 class Indicators(data_cleaning):
 
@@ -49,3 +50,57 @@ class Indicators(data_cleaning):
         self.df.drop('14-low', axis=1, inplace=True)
         self.df.drop('14-high', axis=1, inplace=True)
         return self.df
+
+    def Supertrend(self, atr_period:int = 10, multiplier:int = 3):
+
+        high = self.df['High']
+        low = self.df['Low']
+        close = self.df['Close']
+
+        #atr
+        price_diffs = [high - low,
+                       high - close.shift(),
+                       close.shift() - low]
+        true_range = pd.concat(price_diffs, axis=1)
+        true_range = true_range.abs().max(axis=1)
+        # default atr calculation in supertrend indicator
+        atr = true_range.ewm(alpha=1 / atr_period, min_periods=atr_period).mean()
+
+        hl2 = (high + low) / 2
+        # upperband and lowerband calculation
+        final_upperband = upperband = hl2 + (multiplier * atr)
+        final_lowerband = lowerband = hl2 - (multiplier * atr)
+
+        # initialize Supertrend column to true
+        supertrend = pd.Series(True, index=self.df.index)
+
+        for i in range(1, len(self.df.index)):
+            curr, prev = i, i - 1
+
+            # if current close price crosses above upperband
+            if close.iloc[curr] > final_upperband.iloc[prev]:
+                supertrend.iloc[curr] = True
+            # if current close price crosses below lowerband
+            elif close.iloc[curr] < final_lowerband.iloc[prev]:
+                supertrend.iloc[curr] = False
+            # else, the trend continues
+            else:
+                supertrend.iloc[curr] = supertrend.iloc[prev]
+
+                # adjustment to the final bands
+                if supertrend.iloc[curr] == True and final_lowerband.iloc[curr] < final_lowerband.iloc[prev]:
+                    final_lowerband.iloc[curr] = final_lowerband.iloc[prev]
+                if supertrend.iloc[curr] == False and final_upperband.iloc[curr] > final_upperband.iloc[prev]:
+                    final_upperband.iloc[curr] = final_upperband.iloc[prev]
+
+            # remove bands according to the trend direction
+            if supertrend.iloc[curr] == True:
+                final_upperband.iloc[curr] = np.nan
+            else:
+                final_lowerband.iloc[curr] = np.nan
+
+        return pd.DataFrame({
+            'Supertrend' + str(atr_period): supertrend,
+            'Final Lowerband' + str(atr_period): final_lowerband,
+            'Final Upperband' + str(atr_period): final_upperband
+        }, index=self.df.index)
