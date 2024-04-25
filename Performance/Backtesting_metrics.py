@@ -3,13 +3,13 @@ import numpy as np
 
 class Backtesting_metrics():
 
-    def __init__(self, lot_size, tradelog: pd.DataFrame,slippage:float = 0.001):
+    def __init__(self, quantity, tradelog: pd.DataFrame,slippage:float = 0.001):
         self.tradelog = tradelog
-        self.lot_size = lot_size
+        self.quantity = quantity
         self.slippage = slippage
         self.tradelog['Entry Including Slippage'] = self.tradelog['Entry Price'] - (self.tradelog['Entry Price'] * self.slippage)
         self.tradelog['Exit Including Slippage'] = self.tradelog['Exit Price'] + (self.tradelog['Exit Price'] * self.slippage)
-        self.tradelog['PnL Including Slippage'] = self.lot_size * (self.tradelog['Entry Including Slippage'] - self.tradelog['Exit Including Slippage']) - 100
+        self.tradelog['PnL Including Slippage'] = self.quantity* (self.tradelog['Entry Including Slippage'] - self.tradelog['Exit Including Slippage']) - 100
         self.tradelog['PnL Including Slippage Cumulative Sum'] = self.tradelog['PnL Including Slippage'].cumsum()
 
 

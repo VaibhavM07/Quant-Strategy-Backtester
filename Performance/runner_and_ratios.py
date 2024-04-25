@@ -47,11 +47,15 @@ class runner(Backtesting_metrics):
 
     def CAGR(self):
         number_of_trading_days_for_this_backtest = (
-                    self.tradelog.iloc[-1]['Entry Time'].date() - self.tradelog.iloc[0]['Entry Time'].date()).days
+            (self.tradelog.iloc[-1]['Entry Time'].date() - self.tradelog.iloc[0]['Entry Time'].date()).days
+        )
         number_of_trading_days_for_this_backtest = int(number_of_trading_days_for_this_backtest)
-        cagr = (((self.tradelog.iloc[-1]['Equity'] / self.initial_capital) ** (
-                    1 / (number_of_trading_days_for_this_backtest / 365))) - 1) * 100
-        return round(cagr, 2)
+        ending_equity = self.tradelog.iloc[-1]['Equity']
+        beginning_equity = self.initial_capital
+        cagr = ((ending_equity / beginning_equity) ** (1 / (number_of_trading_days_for_this_backtest / 365))) - 1
+
+        # Return the calculated CAGR rounded to two decimal places
+        return round(cagr * 100, 2)
 
     def report(self):
         report = pd.DataFrame()
