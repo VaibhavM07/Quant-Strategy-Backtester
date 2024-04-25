@@ -21,21 +21,18 @@ class Backtesting_metrics():
     def win_rate(self):
         self.profitable_trades = len(self.tradelog[self.tradelog['PnL Including Slippage'] > 0])
         self.lossmaking_trades = len(self.tradelog) - self.profitable_trades
-        self.win_rate = self.profitable_trades / len(self.tradelog)
+        self.win_ratee = self.profitable_trades / len(self.tradelog)
 
-        return ("Number of Profitable Trades:", self.profitable_trades,
-                "Number of Loss-Making Trades:", self.lossmaking_trades,
-                "Win Rate:", round(self.win_rate, 2))
+        return self.profitable_trades,self.lossmaking_trades,round(self.win_ratee, 2)
 
     def avg_pnl_per_trade(self):
         self.avg_profit = self.tradelog[self.tradelog['PnL Including Slippage'] > 0]['PnL Including Slippage'].mean()
         self.avg_loss = self.tradelog[self.tradelog['PnL Including Slippage'] < 0]['PnL Including Slippage'].mean()
 
-        return ("Average Profit per trade:", round(self.avg_profit, 2),
-                "Average Loss per trade:", round(self.avg_loss, 2))
+        return (round(self.avg_profit, 2),
+                round(self.avg_loss, 2))
 
     def ris_reward(self):
         self.avg_pnl_per_trade()
         self.risk_reward = abs(self.avg_profit / self.avg_loss)
-        return ("Risk Reward Ratio:", round(self.risk_reward, 2))
-
+        return (round(self.risk_reward, 2))
