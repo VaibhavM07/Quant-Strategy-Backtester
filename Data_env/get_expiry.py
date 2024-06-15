@@ -26,6 +26,7 @@ class get_expiry(data_cleaning):
 
     def current_weekly(self):
         target_weekly_exp_formatted =[]
+        self.exp =[]
         for day_of_week in self.backtest_dates:
             if day_of_week.weekday() > 3:
                 days_to_add = 7 - (day_of_week.weekday() - 3)
@@ -36,8 +37,11 @@ class get_expiry(data_cleaning):
                 print("Thrusday holiday")
                 target_weekly_exp = target_weekly_exp -dt.timedelta(days=1)
             target_weekly_exp_formatted.append(target_weekly_exp.strftime('%d%b').upper())
+            [self.exp.append(i) for i in target_weekly_exp_formatted if i not in self.exp]
+            """this instead of set because wanted to reatin the order of list"""
 
-        return list(set(target_weekly_exp_formatted))
+
+        return self.exp
 
     def monthly(self):
         monthly_exp_formatted = []

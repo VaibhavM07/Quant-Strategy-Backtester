@@ -11,28 +11,21 @@ class data_cleaning():
     def __init__(self,path:string,ticker:string):
         self.path = path
         self.ticker = ticker
-    def get_data(self):
         self.df = data_load(path=self.path)
         if self.df.empty:
             print("No Data found in "+self.path)
         else:
             self.df.insert(0, "Timestamp", self.df["Date"] + " " + self.df["Time"])
             self.df["Timestamp"] = pd.to_datetime(self.df["Timestamp"], format="%d/%m/%Y %H:%M:%S")
+            self.df = self.df.sort_values(by="Timestamp")
             self.df["Ticker"] = self.df["Ticker"].apply(str)
             self.df.drop('Date', inplace=True, axis=1)
             self.df.drop('Time', inplace=True, axis=1)
-            return self.df
-    def get_ticker(self):
-        self.df = self.get_data()
-        self.df = self.df[self.df["Ticker"].apply(lambda a: a[0:len(self.ticker)]==self.ticker)]
-        if self.df.empty:
-            print(self.ticker+" data unavailable")
-        else:
-            return self.df
+            self.df = self.df[self.df["Ticker"].apply(lambda a: a[0:len(self.ticker)]==self.ticker)]
+
 
     def get_ticker_call_data(self):
         try:
-            self.df = self.get_ticker()
             ticker_calls = self.df[self.df["Ticker"].apply(lambda a: a.strip()[-2:] == "CE")]
             if ticker_calls.empty:
                 # Because of data issue
@@ -47,7 +40,6 @@ class data_cleaning():
 
     def get_ticker_put_data(self):
         try:
-            self.df = self.get_ticker()
             ticker_puts = self.df[self.df["Ticker"].apply(lambda a: a.strip()[-2:] == "PE")]
             if ticker_puts.empty:
                 # Because of data issue
@@ -61,7 +53,6 @@ class data_cleaning():
             return None
     def get_futures_data(self):
         try:
-            self.df = self.get_ticker()
             ticker_fut = self.df[self.df["Ticker"].apply(lambda a: a.strip()[-2:] == "-I")]
             if ticker_fut.empty:
                 # Because of data issue
@@ -71,7 +62,7 @@ class data_cleaning():
             print(self.ticker+"'s future's data unavailable")
             return None
         except Exception as e:
-            print("Error occurred: {}".format(e))
+            print("Error : {}".format(e))
             return None
 
 

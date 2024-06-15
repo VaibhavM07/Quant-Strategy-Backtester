@@ -8,7 +8,7 @@ class runner(Backtesting_metrics):
 
     def __init__(self, initial_capital: int, risk_free_rate: float = 5, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.tradelog = self.tradelog
+        self.tradelog = self.tradelog.dropna().reset_index(drop=True)
         self.initial_capital = initial_capital
         self.risk_free_rate = risk_free_rate
         self.tradelog['Equity'] = 0  #Equity is capital plus pnl
@@ -25,7 +25,7 @@ class runner(Backtesting_metrics):
                 self.tradelog.loc[i, 'Rate Of Return'] = (self.tradelog.loc[i, 'PnL Including Slippage'] /
                                                           self.tradelog.loc[i - 1, 'Equity']) * 100
     def sharpe_ratio(self):
-        self.avg_ror = self.tradelog['Rate Of Return'].mean() * len(self.tradelog) - self.risk_free_rate
+        self.avg_ror = (self.tradelog['Rate Of Return'].mean() * len(self.tradelog)) - self.risk_free_rate
         sigma = self.tradelog['Rate Of Return'].std() * np.sqrt(len(self.tradelog))
         sharpe_ratio = self.avg_ror / sigma
         return (round(sharpe_ratio, 2))
@@ -49,10 +49,14 @@ class runner(Backtesting_metrics):
         number_of_trading_days_for_this_backtest = (
             (self.tradelog.iloc[-1]['Entry Time'].date() - self.tradelog.iloc[0]['Entry Time'].date()).days
         )
-        number_of_trading_days_for_this_backtest = int(number_of_trading_days_for_this_backtest)
-        ending_equity = self.tradelog.iloc[-1]['Equity']
-        beginning_equity = self.initial_capital
-        cagr = ((ending_equity / beginning_equity) ** (1 / (number_of_trading_days_for_this_backtest / 365))) - 1
+        if number_of_trading_days_for_this_backtest == 0:
+            return "Error: Number of trading days is zero."
+        else:
+            number_of_trading_days_for_this_backtest = int(number_of_trading_days_for_this_backtest)
+            ending_equity = self.tradelog.iloc[-1]['Equity']
+            beginning_equity = self.initial_capital
+            cagr = ((ending_equity / beginning_equity) ** (1 / (number_of_trading_days_for_this_backtest / 365))) - 1
+            return cagr
 
         # Return the calculated CAGR rounded to two decimal places
         return round(cagr * 100, 2)
