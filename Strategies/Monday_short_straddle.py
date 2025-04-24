@@ -14,6 +14,8 @@ class short_straddle:
         self.tradelog = tradelog
         self.quantity = quantity
 
+    def test(self):
+        print("Print")
 
     def atm_option_data(self):
         self.call_universe = pd.DataFrame()
