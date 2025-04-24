@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from Data_env import (Data_cleaning,get_expiry,Strike_selection)
+from Data_env import (Data_cleaning,get_expiry, Strike_selection)
 from Performance import(runner_and_ratios)
 
 
@@ -13,6 +13,7 @@ class short_straddle:
         self.Exit_time = Exit_time
         self.tradelog = tradelog
         self.quantity = quantity
+
 
     def atm_option_data(self):
         self.call_universe = pd.DataFrame()
@@ -117,7 +118,7 @@ class short_straddle:
 
 
 if __name__ == "__main__":
-    path = r"/Users/vaibhavmishra/NSE Data/ALL NSE DATA/NSE F&O year 20112015&2019-2020/NSE F&O/2019"
+    path = r"/Users/bobby/Documents/Quant-Strategy-Backtester/Sample data"
     ticker = "BANKNIFTY"
     obj1 = short_straddle(path=path,ticker=ticker,Entry_time="09:29:59",Exit_time="15:15:00",quantity = 25,tradelog=pd.DataFrame(columns = ['Ticker', 'Entry Time', 'Entry Price', 'Stop Loss Exit', 'Exit Time', 'Exit Price']))
     obj1.atm_option_data()
