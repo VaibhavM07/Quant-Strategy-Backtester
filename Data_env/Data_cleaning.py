@@ -66,7 +66,7 @@ class data_cleaning():
                 puts = puts.sort_values(by=["Timestamp"], ascending=True)
                 puts.columns = ["Timestamp", "PE_Ticker", "PE_Open", "PE_High", "PE_Low", "PE_Close","PE_Volume","PE_Open_Interest"]
         trade_universe = pd.merge(calls, puts, on="Timestamp")
-        print("TRADE UNIVERSE CREATED")
+
         return trade_universe,future
     def get_ticker_call_data(self,local_df):
         try:
@@ -110,12 +110,15 @@ class data_cleaning():
             return None
 
     def get_filtered_data(self):
+        print("TRADE UNIVERSE CREATED")
         folder = glob.glob(self.path)
         for file in folder:
             files = glob.glob(file + "/*.csv")
-        for file in files:
+        for file in tqdm.tqdm(files):
             self.trade_uni = pd.concat([self.trade_uni,self.data_load(file=file)[0]])
             self.futures  = pd.concat([self.futures,self.data_load(file=file)[1]])
+            if self.trade_uni.empty or self.futures.empty:
+                print(f"Skipping file {file} because it's empty.")
         return self.trade_uni,self.futures
 
 
