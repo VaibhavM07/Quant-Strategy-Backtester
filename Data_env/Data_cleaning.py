@@ -34,9 +34,9 @@ class data_cleaning():
             local_df.drop('Time', inplace=True, axis=1)
             local_df = local_df[local_df["Ticker"].apply(lambda a: a[0:len(self.ticker)]==self.ticker)]
             if self.expiry_type == "CURRENT_WEEK":
-                expiry = get_expiry(futures=self.get_futures_data(local_df=local_df)).current_weekly()
+                expiry = get_expiry(futures=self.get_ticker_call_data(local_df=local_df)).current_weekly()
             elif self.expiry_type == "MONTHLY":
-                expiry = get_expiry(futures=self.get_futures_data(local_df=local_df)).monthly()
+                expiry = get_expiry(futures=self.get_ticker_call_data(local_df=local_df)).monthly()
             else:
                 raise Exception(f"{self.expiry_type} does not exist")
 
@@ -101,6 +101,10 @@ class data_cleaning():
             if ticker_fut.empty:
                 # Because of data issue
                 ticker_fut = local_df[local_df["Ticker"].apply(lambda a: a.strip()[-6:-4] == "-I")]
+                if ticker_fut.empty:
+                    exp = get_expiry(local_df).monthly()[0][-3:]
+                    ticker_fut = local_df[local_df["Ticker"].apply(lambda a: a.strip()[-10:-4] == exp+"FUT")]
+
             return ticker_fut
         except KeyError as e:
             print(self.ticker+"'s future's data unavailable")
@@ -110,7 +114,7 @@ class data_cleaning():
             return None
 
     def get_filtered_data(self):
-        print("TRADE UNIVERSE CREATED")
+        print("CREATIING TRADE UNIVERSE")
         folder = glob.glob(self.path)
         for file in folder:
             files = glob.glob(file + "/*.csv")
@@ -119,6 +123,7 @@ class data_cleaning():
             self.futures  = pd.concat([self.futures,self.data_load(file=file)[1]])
             if self.trade_uni.empty or self.futures.empty:
                 print(f"Skipping file {file} because it's empty.")
+        print("TRADE UNIVERSE CREATED")
         return self.trade_uni,self.futures
 
 

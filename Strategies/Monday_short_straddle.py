@@ -32,7 +32,7 @@ class short_straddle:
         entry_time = None
         entry_price = None
         print("TRADING")
-        for index, row in tqdm.tqdm(self.trade_universe.iterrows()):
+        for index, row in tqdm.tqdm(self.trade_universe.iterrows(), total=len(self.trade_universe)):
             current_time = row['Timestamp']
 
             if trade_active:
