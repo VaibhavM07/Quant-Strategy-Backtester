@@ -1,15 +1,13 @@
-from Data_env.Data_cleaning import data_cleaning
 import pandas as pd
 import datetime as dt
 import holidays
 india_holidays = holidays.country_holidays(country="IN")
 
 
-class get_expiry(data_cleaning):
+class get_expiry():
 
-    def __init__(self,*args, **kwargs):
-        super().__init__( *args, **kwargs)
-        self.dff = self.get_futures_data()
+    def __init__(self,futures):
+        self.dff = futures
         self.backtest_dates = []
         if not self.dff.empty:
             self.current_backtest_date = self.dff["Timestamp"].dt.date.min()

@@ -1,46 +1,27 @@
 import pandas as pd
 import numpy as np
-from Data_env import (Data_cleaning,get_expiry,Strike_selection)
+from Data_env import (Data_cleaning, Get_expiry, Strike_selection)
 from Performance import(runner_and_ratios)
+from Data_env.Data_cleaning import data_cleaning
 
 
 class short_straddle:
 
-    def __init__(self, path, ticker, Entry_time, Exit_time, quantity, tradelog: pd.DataFrame):
+    def __init__(self, path, ticker, Entry_time, Exit_time, quantity,tradelog: pd.DataFrame):
         self.path = path
         self.ticker = ticker
         self.Entry_time = Entry_time
         self.Exit_time = Exit_time
         self.tradelog = tradelog
         self.quantity = quantity
+        # self.expiry_type = expiry_type
 
     def atm_option_data(self):
         self.call_universe = pd.DataFrame()
         self.put_universe = pd.DataFrame()
-        option_data = Strike_selection.Strike_selection(path=self.path, ticker=self.ticker)
-        self.calls = option_data.get_ATM_strike(call_put="CALL")
-        self.puts = option_data.get_ATM_strike(call_put="PUT")
-        self.expiry = option_data.current_weekly()
-        for i in range(len(self.expiry)):
-            self.call_universe = pd.concat([self.call_universe, self.calls[self.calls["Ticker"].apply(
-                lambda a: a.strip()[:len(self.ticker) + len(self.expiry[i])] == str(self.ticker + self.expiry[i]))]])
-            self.put_universe = pd.concat([self.put_universe, self.puts[self.puts["Ticker"].apply(
-                lambda a: a.strip()[:len(self.ticker) + len(self.expiry[i])] == str(self.ticker + self.expiry[i]))]])
-
-        self.call_universe = self.call_universe.sort_values(by=["Timestamp", "Volume"], ascending=[True, False])
-        self.call_universe = self.call_universe[~self.call_universe.duplicated(subset="Timestamp", keep="first")]
-        self.call_universe.columns = ["Timestamp", "CE_Ticker", "CE_Open", "CE_High", "CE_Low", "CE_Close", "CE_Volume",
-                                      "CE_Open_Interest"]
-
-        self.put_universe = self.put_universe.sort_values(by=["Timestamp", "Volume"], ascending=[True, False])
-        self.put_universe = self.put_universe[~self.put_universe.duplicated(subset="Timestamp", keep="first")]
-        self.put_universe.columns = ["Timestamp", "PE_Ticker", "PE_Open", "PE_High", "PE_Low", "PE_Close", "PE_Volume",
-                                     "PE_Open_Interest"]
-
-        self.trade_universe = pd.merge(self.call_universe, self.put_universe, on="Timestamp")
-
-        self.trade_universe = self.trade_universe[self.trade_universe["Timestamp"] >= pd.to_datetime(
-            self.trade_universe["Timestamp"].dt.date.astype(str) + " " + self.Entry_time)]
+        option_data = data_cleaning(expiry_type="CURRENT_WEEK",path=self.path,ticker=self.ticker).get_filtered_data()[0]
+        self.trade_universe = option_data[option_data["Timestamp"] >= pd.to_datetime(
+            option_data["Timestamp"].dt.date.astype(str) + " " + self.Entry_time)]
         self.trade_universe = self.trade_universe[self.trade_universe["Timestamp"] < pd.to_datetime(
             self.trade_universe["Timestamp"].dt.date.astype(str) + " " + self.Exit_time)]
 
@@ -117,7 +98,7 @@ class short_straddle:
 
 
 if __name__ == "__main__":
-    path = r"/Users/vaibhavmishra/NSE Data/ALL NSE DATA/NSE F&O year 20112015&2019-2020/NSE F&O/2019"
+    path = r"/Users/vaibhavmishra/GitHub/Backtesting/Sample data"
     ticker = "BANKNIFTY"
     obj1 = short_straddle(path=path,ticker=ticker,Entry_time="09:29:59",Exit_time="15:15:00",quantity = 25,tradelog=pd.DataFrame(columns = ['Ticker', 'Entry Time', 'Entry Price', 'Stop Loss Exit', 'Exit Time', 'Exit Price']))
     obj1.atm_option_data()
