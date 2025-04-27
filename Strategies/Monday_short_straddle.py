@@ -17,8 +17,6 @@ class short_straddle:
         # self.expiry_type = expiry_type
 
     def atm_option_data(self):
-        self.call_universe = pd.DataFrame()
-        self.put_universe = pd.DataFrame()
         option_data = data_cleaning(expiry_type="CURRENT_WEEK",path=self.path,ticker=self.ticker).get_filtered_data()[0]
         self.trade_universe = option_data[option_data["Timestamp"] >= pd.to_datetime(
             option_data["Timestamp"].dt.date.astype(str) + " " + self.Entry_time)]
@@ -94,6 +92,7 @@ class short_straddle:
         performace = runner_and_ratios.runner(initial_capital=100000,risk_free_rate=1,tradelog=self.tradelog,quantity=self.quantity)
         self.report = performace.report()
         return self.report
+
 
 
 
