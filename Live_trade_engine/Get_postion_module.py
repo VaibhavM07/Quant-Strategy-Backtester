@@ -1,207 +1,145 @@
+"""
+PositionMonitor — real-time position and order tracking.
+
+Connects to Fyers order websocket (order_ws) to receive live updates on
+orders, positions, and trades without polling the REST API.
+"""
+
+import threading
 from fyers_apiv3.FyersWebsocket import order_ws
-from fyers_apiv3.FyersWebsocket import data_ws
-from datetime import datetime, timedelta, timezone
-import pandas as pd
-from fyers_apiv3 import fyersModel
-from selenium import webdriver
-from selenium.common.exceptions import ElementNotInteractableException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import pyotp
-import datetime as dt
-import time
-import hashlib
-from Live_trade_engine.Login_module import login_module
-class websocket_interation(login_module):
 
-    def __init__(self,
-                 client_id: str,
-                 secret_key: str,
-                 redirect_url: str,
-                 entry_price: float = None,
-                 exit_price: float = None,
-                 stop_loss: float = None,
-                 take_profit: float = None,
-                 postion_flag: int = 0,
-                 symbols: str = "",
-                 expiry: str = "",
-                 exchange: str = "NSE",
-                 option_type: str = "",
-                 quantity: int = None,
-                 LongOrShort: int = None,
-                 place_order: bool = False,
-                 history_start_date: str = None,
-                 history_end_date: str = None,
-                 history_data_frequency: int = 5):
-        super().__init__(client_id=client_id, secret_key=secret_key, redirect_url=redirect_url)
-        self.entry_price = entry_price
-        self.exit_price = exit_price
-        self.stop_loss = stop_loss
-        self.take_profit = take_profit
-        self.postion_flag = postion_flag
-        self.symbols = symbols
-        self.expiry = expiry
-        self.exchange = exchange
-        self.quantity = quantity
-        self.LongOrShort = LongOrShort
-        self.option_type = option_type
-        self.place_order = place_order
-        self.history_start_date = history_start_date
-        self.history_end_date = history_end_date
-        self.history_data_frequency = history_data_frequency
 
-        self.fyers_ticks = data_ws.FyersDataSocket(
+class PositionMonitor:
+    """
+    Tracks open positions and order status in real time.
+
+    Usage:
+        monitor = PositionMonitor(fyers, access_token=f"{client_id}:{token}")
+        monitor.start()
+        ...
+        positions = monitor.get_positions()  # REST snapshot
+        monitor.stop()
+    """
+
+    def __init__(self, fyers, access_token: str, log_path: str = ""):
+        self.fyers = fyers
+        self.access_token = access_token
+        self.log_path = log_path
+
+        # Callbacks the strategy can hook into
+        self.on_order_update = None
+        self.on_position_update = None
+        self.on_trade_update = None
+
+        self._ws = None
+        self._lock = threading.Lock()
+        self._orders: dict = {}       # order_id → order dict
+        self._positions: list = []    # latest positions snapshot
+
+    # ------------------------------------------------------------------
+    # Websocket lifecycle
+    # ------------------------------------------------------------------
+
+    def start(self):
+        """Connect to Fyers order websocket."""
+        self._ws = order_ws.FyersOrderSocket(
             access_token=self.access_token,
-            log_path="",
-            litemode=False,
             write_to_file=False,
-            reconnect=True,
-            on_connect=self.onopen_ticks,
-            on_close=self.onclose,
-            on_error=self.onerror,
-            on_message=self.onmessage
+            log_path=self.log_path,
+            on_connect=self._on_connect,
+            on_close=self._on_close,
+            on_error=self._on_error,
+            on_orders=self._on_order,
+            on_positions=self._on_position,
+            on_trades=self._on_trade,
         )
-        self.fyers_ticks.connect()
-        print(self.fyers_ticks)
-        print("wesocket data:")
+        self._ws.connect()
 
+    def stop(self):
+        if self._ws:
+            self._ws.close_connection()
 
-        # self.fyers_positions = order_ws.FyersOrderSocket(
-        #     access_token=self.access_token,
-        #     write_to_file=False,
-        #     log_path="",
-        #     on_connect=self.onopen_position_orders,
-        #     on_close=self.onclose,
-        #     on_error=self.onerror,
-        #     on_positions=self.onPosition,
-        # )
-        # self.fyers_positions.connect()
+    # ------------------------------------------------------------------
+    # Websocket callbacks
+    # ------------------------------------------------------------------
 
-    def onmessage(self, message):
-        symbol = self.exchange + ":" + self.symbols + self.expiry
-        symbol += "CE" if self.option_type == "CALL" else "PE"
+    def _on_connect(self):
+        data_type = "OnOrders,OnPositions,OnTrades"
+        self._ws.subscribe(data_type=data_type)
+        self._ws.keep_running()
+        print("[PositionMonitor] Connected to order websocket.")
 
-        if self.place_order:
-            if not self.postion_flag:
-                data_placement = self.getOrderPlacement(symbol=symbol,
-                                                        quantity=self.quantity,
-                                                        LongOrShort=self.LongOrShort,
-                                                        limitPrice=self.entry_price)
-                response = self.fyers.place_order(data=data_placement)
-                print(response)
-            elif self.LongOrShort == 1:
-                if message["ltp"] <= self.stop_loss:
-                    data_placement = self.getOrderPlacement(symbol=symbol,
-                                                            quantity=self.quantity,
-                                                            LongOrShort=(-1)*self.LongOrShort,
-                                                            limitPrice=message["ltp"])
-                    response = self.fyers.place_order(data=data_placement)
-                    print(response)
-                elif message["ltp"] >= self.take_profit:
-                    data_placement = self.getOrderPlacement(symbol=symbol,
-                                                            quantity=self.quantity,
-                                                            LongOrShort=(-1) * self.LongOrShort,
-                                                            limitPrice=message["ltp"])
-                    response = self.fyers.place_order(data=data_placement)
-                    print(response)
-            elif self.LongOrShort == -1:
-                if message["ltp"] >= self.stop_loss:
-                    data_placement = self.getOrderPlacement(symbol=symbol,
-                                                            quantity=self.quantity,
-                                                            LongOrShort=(-1)*self.LongOrShort,
-                                                            limitPrice=message["ltp"])
-                    response = self.fyers.place_order(data=data_placement)
-                    print(response)
-                elif message["ltp"] <= self.take_profit:
-                    data_placement = self.getOrderPlacement(symbol=symbol,
-                                                            quantity=self.quantity,
-                                                            LongOrShort=(-1) * self.LongOrShort,
-                                                            limitPrice=message["ltp"])
-                    response = self.fyers.place_order(data=data_placement)
-                    print(response)
+    def _on_order(self, message):
+        if not message:
+            return
+        with self._lock:
+            order_id = message.get("id", "")
+            if order_id:
+                self._orders[order_id] = message
+        if self.on_order_update:
+            self.on_order_update(message)
 
+    def _on_position(self, message):
+        if not message:
+            return
+        with self._lock:
+            self._positions = message if isinstance(message, list) else [message]
+        if self.on_position_update:
+            self.on_position_update(message)
 
+    def _on_trade(self, message):
+        if self.on_trade_update:
+            self.on_trade_update(message)
 
-    def onopen_position_orders(self):
-        data_type = "OnPositions,OnOrders"
-        self.fyers_ticks.subscribe(symbols=[self.symbols], data_type=data_type)
-        self.fyers_ticks.keep_running()
+    def _on_close(self, message):
+        print(f"[PositionMonitor] Websocket closed: {message}")
 
-    def onerror(self, message):
-        print("Error:", message)
+    def _on_error(self, message):
+        print(f"[PositionMonitor] Websocket error: {message}")
 
-    def onclose(self, message):
-        print("Connection closed:", message)
+    # ------------------------------------------------------------------
+    # REST API helpers
+    # ------------------------------------------------------------------
 
-    def onopen_ticks(self):
-        data_type = "SymbolUpdate"
-        self.fyers_ticks.subscribe(symbols=[self.symbols], data_type=data_type)
-        self.fyers_ticks.keep_running()
+    def get_positions(self) -> dict:
+        """Fetch current open positions via REST."""
+        return self.fyers.positions()
 
-    def onPosition(self, message):
-        print("Realized_PnL: ",message["realized_profit"],"Entry_price: ",message['buyAvg'],"Buy_quantity: ",message['buyQty'],"Sell_price: ",message["sellVal"],"Sell_quantity: ",message["sellQty"])
-        # print("Position Response:", message)
-        return message
+    def get_tradebook(self) -> dict:
+        """Fetch today's trades via REST."""
+        return self.fyers.tradebook()
 
-    def onOrder(self, message):
-        print("Order Response:", message)
+    def get_orderbook(self) -> dict:
+        """Fetch today's orders via REST."""
+        return self.fyers.orderbook()
 
-    def get_historical_data(self):
-        required_data = {
-            "symbol": self.symbols,
-            "resolution": str(self.history_data_frequency),
-            "date_format": "1",
-            "range_from": self.history_start_date,
-            "range_to": self.history_end_date,
-            "cont_flag": "0"
-        }
-        response = self.fyers.history(data=required_data)
-        data = pd.DataFrame.from_dict(response["candles"])
-        columns = ['datetime', 'open', 'high', 'low', 'close', 'volume']
-        data.columns = columns
-        data['datetime'] = pd.to_datetime(data['datetime'], unit="s")
-        data['datetime'] = data['datetime'].dt.tz_localize('utc').dt.tz_convert('Asia/Kolkata')
-        data['datetime'] = data['datetime'].dt.tz_localize(None)
-        data = data.set_index('datetime')
-        return data
+    def get_funds(self) -> dict:
+        """Fetch available funds/margin."""
+        return self.fyers.funds()
 
-    @staticmethod
-    def getOrderPlacement(symbol: str,
-                       quantity: int,
-                       LongOrShort: int,
-                       limitPrice: float = 0.0,
-                       stopPrice: float = 0.0,
-                       order_type: int = 2,
-                       product_type: str = "MARGIN",
-                       validity: str = "DAY",
-                       disclosedQty: int = 0,
-                       offlineOrder: bool = False
-                       ):
-        data = {
-            "symbol": symbol,
-            "qty": quantity,
-            "type": order_type,
-            "side": LongOrShort,
-            "productType": product_type,
-            "limitPrice": limitPrice,
-            "stopPrice": stopPrice,
-            "validity": validity,
-            "disclosedQty": disclosedQty,
-            "offlineOrder": offlineOrder,
-        }
+    # ------------------------------------------------------------------
+    # In-memory state (populated by websocket)
+    # ------------------------------------------------------------------
 
-        return data
+    def get_cached_positions(self) -> list:
+        with self._lock:
+            return list(self._positions)
 
-if __name__ == "__main__":
+    def get_cached_orders(self) -> dict:
+        with self._lock:
+            return dict(self._orders)
 
-    obj = websocket_interation(client_id="EGD02YUYIM-100",
-                    secret_key="RA4O32OJRK",
-                    redirect_url="https://trade.fyers.in/api-login/redirect-uri/index.html",
-                    history_start_date="2025-05-01",
-                    history_end_date="2025-05-30",
-                    symbols= "NSE:NIFTY25JUN26000CE",
-
-                               )
-    history = obj.get_historical_data()
-    print(history)
+    def calculate_pnl(self) -> float:
+        """
+        Compute realized + unrealized P&L from latest position snapshot.
+        Returns total P&L in rupees.
+        """
+        resp = self.get_positions()
+        if resp.get("s") != "ok":
+            return 0.0
+        net_positions = resp.get("netPositions", [])
+        total_pnl = sum(
+            p.get("unrealizedProfit", 0) + p.get("realizedProfit", 0)
+            for p in net_positions
+        )
+        return total_pnl
